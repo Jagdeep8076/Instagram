@@ -1,0 +1,16 @@
+{
+  "name": "insta-clone",
+  "version": "1.0.0",
+  "description": "**Core:** signup / login / logout (JWT), feed, image+video posts, Reels (vertical scroll, autoplay, double-tap like, mute), like / unlike, comments, share (link copy / native share), follow / unfollow, profile card + edit profile (avatar, bio), explore grid, user search, follow suggestions, delete own post.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "puppeteer-core": "^25.16.0"
+  }
+}
