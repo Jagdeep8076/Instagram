@@ -1,84 +1,44 @@
 import axios from 'axios';
 
-const api = axios.create({
-  baseURL: '/api',
-  withCredentials: true,
-});
+// The short-lived access token lives in memory only (never localStorage).
+// The long-lived refresh token is an httpOnly cookie the browser sends automatically.
+let accessToken = null;
+let onAuthLost = () => {};
+export const setToken = (t) => { accessToken = t; };
+export const getToken = () => accessToken;
+export const setOnAuthLost = (fn) => { onAuthLost = fn; };
 
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = 'Bearer ' + token;
+const api = axios.create({ baseURL: '/api', withCredentials: true });
+api.interceptors.request.use((c) => { if (accessToken) c.headers.Authorization = 'Bearer ' + accessToken; return c; });
+
+let refreshing = null;
+export const refreshSession = () => {
+  if (!refreshing) {
+    refreshing = axios.post('/api/auth/refresh', null, { withCredentials: true })
+      .then((r) => { accessToken = r.data.accessToken; return r.data; })
+      .finally(() => { refreshing = null; });
   }
-  return config;
-});
-
-let isRefreshing = false;
-let failedQueue = [];
-
-const processQueue = (error, token = null) => {
-  failedQueue.forEach((prom) => {
-    if (error) {
-      prom.reject(error);
-    } else {
-      prom.resolve(token);
-    }
-  });
-  failedQueue = [];
+  return refreshing;
 };
 
-api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-
-    // Skip refreshing if request was to auth endpoints like login, register, refresh itself
-    if (
-      error.response?.status === 401 &&
-      !originalRequest._retry &&
-      !originalRequest.url?.includes('/auth/login') &&
-      !originalRequest.url?.includes('/auth/refresh') &&
-      !originalRequest.url?.includes('/auth/register') &&
-      !originalRequest.url?.includes('/auth/verify-email')
-    ) {
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        })
-          .then((token) => {
-            originalRequest.headers.Authorization = 'Bearer ' + token;
-            return api(originalRequest);
-          })
-          .catch((err) => Promise.reject(err));
-      }
-
-      originalRequest._retry = true;
-      isRefreshing = true;
-
-      try {
-        const { data } = await axios.post('/api/auth/refresh', {}, { withCredentials: true });
-        const newToken = data.token;
-        localStorage.setItem('token', newToken);
-
-        window.dispatchEvent(new CustomEvent('auth:token-refreshed', { detail: { token: newToken, user: data.user } }));
-
-        api.defaults.headers.common.Authorization = 'Bearer ' + newToken;
-        originalRequest.headers.Authorization = 'Bearer ' + newToken;
-
-        processQueue(null, newToken);
-        return api(originalRequest);
-      } catch (refreshError) {
-        processQueue(refreshError, null);
-        localStorage.removeItem('token');
-        window.dispatchEvent(new CustomEvent('auth:logout'));
-        return Promise.reject(refreshError);
-      } finally {
-        isRefreshing = false;
-      }
-    }
-
-    return Promise.reject(error);
+// On 401 (expired access token): refresh once, then retry the original request
+api.interceptors.response.use((r) => r, async (err) => {
+  const { config, response } = err;
+  if (response?.status === 401 && config && !config._retry && !config.url.startsWith('/auth/')) {
+    config._retry = true;
+    try { await refreshSession(); config.headers.Authorization = 'Bearer ' + accessToken; return api(config); }
+    catch { accessToken = null; onAuthLost(); }
   }
-);
-
+  return Promise.reject(err);
+});
+export const errMsg = (e, fallback = 'Something went wrong. Please try again.') => {
+  const res = e?.response;
+  if (res?.status === 503 && res?.data?.msg) {
+    return res.data.msg;
+  }
+  if (!res || !res.data || typeof res.data !== 'object' || [500, 502, 503, 504].includes(res.status)) {
+    return "Can't reach the server. Make sure the server is running.";
+  }
+  return res.data?.msg || fallback;
+};
 export default api;

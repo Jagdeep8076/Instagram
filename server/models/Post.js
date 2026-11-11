@@ -6,10 +6,10 @@ const PostSchema = new mongoose.Schema(
     caption: { type: String, default: '' },
     media: { type: String, required: true },
     type: { type: String, enum: ['post', 'reel'], default: 'post' },
+    edited: { type: Boolean, default: false },
     likes: [ref],
     comments: [{ user: ref, text: String, createdAt: { type: Date, default: Date.now } }],
     hashtags: [{ type: String, index: true }], // lowercase tags extracted from caption (indexed)
-    isEdited: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

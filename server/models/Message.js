@@ -1,13 +1,7 @@
 const mongoose = require('mongoose');
 const ref = { type: mongoose.Schema.Types.ObjectId, ref: 'User' };
 const MessageSchema = new mongoose.Schema(
-  {
-    from: { ...ref, required: true },
-    to: { ...ref, required: true },
-    text: { type: String, default: '' },
-    isUnsent: { type: Boolean, default: false },
-    read: { type: Boolean, default: false },
-  },
+  { from: { ...ref, required: true }, to: { ...ref, required: true }, text: { type: String, default: '' }, read: { type: Boolean, default: false }, deleted: { type: Boolean, default: false } },
   { timestamps: true }
 );
 MessageSchema.index({ from: 1, to: 1, createdAt: 1 }); // chat history (one direction)

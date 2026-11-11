@@ -1,21 +1,7 @@
 const jwt = require('jsonwebtoken');
-
 module.exports = (req, res, next) => {
-  const authHeader = req.headers.authorization || '';
-  const token = authHeader.replace(/^Bearer\s+/i, '');
-
-  if (!token) {
-    return res.status(401).json({ msg: 'Authentication required. No token provided.' });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.userId = decoded.id;
-    next();
-  } catch (err) {
-    return res.status(401).json({
-      msg: 'Session expired or invalid token',
-      expired: err.name === 'TokenExpiredError',
-    });
-  }
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  if (!token) return res.status(401).json({ msg: 'Please log in to continue.' });
+  try { req.userId = jwt.verify(token, process.env.JWT_SECRET).id; next(); }
+  catch { res.status(401).json({ msg: 'Your session has expired. Please log in again.' }); }
 };

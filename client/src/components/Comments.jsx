@@ -1,79 +1,45 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import api from '../api';
+import api, { errMsg } from '../api';
 import { useAuth } from '../AuthContext';
 import Avatar from './Avatar';
 import Caption from './Caption';
+import Icon from './Icon';
+import timeAgo from './timeAgo';
 
 export default function Comments({ postId, postOwnerId, comments, setComments }) {
   const { user } = useAuth();
   const [text, setText] = useState('');
-  const [busy, setBusy] = useState(false);
-
+  const [err, setErr] = useState('');
   const submit = async (e) => {
     e.preventDefault();
-    if (!text.trim() || busy) return;
-    setBusy(true);
-    try {
-      const { data } = await api.post(`/posts/${postId}/comment`, { text: text.trim() });
-      setComments(data);
-      setText('');
-    } catch {}
-    setBusy(false);
+    if (!text.trim()) return;
+    try { const { data } = await api.post(`/posts/${postId}/comment`, { text }); setComments(data); setText(''); setErr(''); }
+    catch (x) { setErr(errMsg(x)); }
   };
-
-  const deleteComment = async (commentId) => {
-    if (!confirm('Delete this comment?')) return;
-    try {
-      const { data } = await api.delete(`/posts/${postId}/comment/${commentId}`);
-      setComments(data);
-    } catch {}
+  const remove = async (cid) => {
+    try { const { data } = await api.delete(`/posts/${postId}/comments/${cid}`); setComments(data); }
+    catch (x) { setErr(errMsg(x)); }
   };
-
   return (
     <div className="comments">
       <div className="comment-list">
-        {comments.length === 0 && (
-          <p className="muted small">No comments yet. Be the first to comment!</p>
-        )}
-        {comments.map((c) => {
-          const isCommentAuthor = user && c.user && c.user._id === user._id;
-          const isPostAuthor = user && postOwnerId && (postOwnerId === user._id || postOwnerId._id === user._id);
-          const canDelete = isCommentAuthor || isPostAuthor;
-
-          return (
-            <div key={c._id} className="comment between row">
-              <div className="row grow">
-                <Avatar src={c.user?.avatar} size={24} />
-                <span>
-                  <Link to={'/' + c.user?.username}>
-                    <b>{c.user?.username}</b>
-                  </Link>{' '}
-                  <Caption text={c.text} />
-                </span>
-              </div>
-              {canDelete && (
-                <button
-                  className="link-danger icon-btn"
-                  onClick={() => deleteComment(c._id)}
-                  title="Delete comment"
-                  aria-label="Delete comment"
-                >
-                  <i className="ri-delete-bin-line" />
-                </button>
-              )}
-            </div>
-          );
-        })}
+        {comments.length === 0 && <p className="muted">No comments yet. Start the conversation.</p>}
+        {comments.map((c) => (
+          <div key={c._id} className="comment">
+            <Avatar src={c.user?.avatar} size={28} />
+            <span className="grow"><Link to={'/' + c.user?.username}><b>{c.user?.username}</b></Link> <Caption text={c.text} /> <small className="muted">{timeAgo(c.createdAt)}</small></span>
+            {(c.user?._id === user._id || postOwnerId === user._id) && (
+              <button className="c-del" title="Delete comment" aria-label="Delete comment" onClick={() => remove(c._id)}><Icon name="delete-bin-6-line" /></button>
+            )}
+          </div>
+        ))}
       </div>
       <form onSubmit={submit} className="comment-form">
-        <input
-          placeholder="Add a comment…"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-        />
-        <button disabled={!text.trim() || busy}>Post</button>
+        <input placeholder="Add a comment…" value={text} onChange={(e) => setText(e.target.value)} maxLength={500} />
+        <button disabled={!text.trim()}>Post</button>
       </form>
+      {err && <p className="error">{err}</p>}
     </div>
   );
 }

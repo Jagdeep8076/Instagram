@@ -1,154 +1,64 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import api from '../api';
-import FloatingInput from '../components/FloatingInput';
-import LegalModal from '../components/LegalModal';
+import { Link } from 'react-router-dom';
+import api, { errMsg } from '../api';
+import AuthShell, { DevBox } from '../components/AuthShell';
+import { Field } from '../components/Field';
+import Icon from '../components/Icon';
 
 export default function ForgotPassword() {
-  const nav = useNavigate();
-  const [identifier, setIdentifier] = useState('');
+  const [id, setId] = useState('');
   const [busy, setBusy] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [maskedEmail, setMaskedEmail] = useState('');
-  const [showHelp, setShowHelp] = useState(false);
   const [err, setErr] = useState('');
+  const [done, setDone] = useState(null);
+  const [help, setHelp] = useState(false);
 
-  const canSubmit = identifier.trim().length > 0;
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!canSubmit || busy) return;
-    setErr('');
-    setBusy(true);
-
-    try {
-      const { data } = await api.post('/auth/forgot-password', {
-        identifier: identifier.trim(),
-      });
-      setSubmitted(true);
-      if (data?.maskedEmail) {
-        setMaskedEmail(data.maskedEmail);
-      }
-    } catch (ex) {
-      // Even on error, server returns generic message or rate-limit error
-      if (ex.response?.status === 429) {
-        setErr('Too many recovery attempts. Please try again later.');
-      } else {
-        setSubmitted(true);
-      }
-    } finally {
-      setBusy(false);
-    }
+  const submit = async (e) => {
+    e.preventDefault(); setErr(''); setBusy(true);
+    try { const { data } = await api.post('/auth/forgot', { login: id }); setDone(data); }
+    catch (x) { setErr(errMsg(x)); }
+    setBusy(false);
   };
 
-  return (
-    <div className="auth-container">
-      <div className="auth-card-content">
-        <div className="auth-top-nav">
-          <button
-            type="button"
-            className="icon-btn auth-back-btn"
-            onClick={() => nav('/login')}
-            aria-label="Back to login"
-          >
-            <i className="ri-arrow-left-s-line" />
-          </button>
+  if (done) {
+    return (
+      <AuthShell back="/login">
+        <div className="auth2-form center-block">
+          <Icon name="mail-send-line" className="big-ico" />
+          <h1>Check your email</h1>
+          <p className="sub">{done.message} The link expires in 1 hour. Don&apos;t see it? Check your spam folder.</p>
+          {done.devLink && (
+            <DevBox>
+              {done.emailError ? 'The email could not be sent (check SMTP settings in server/.env). ' : done.emailSent ? '' : 'No email was sent (SMTP is not configured). '}
+              Use this link: <a className="link-blue" href={done.devLink}>Open reset link</a>
+            </DevBox>
+          )}
+          <Link to="/login" className="btn-pill btn-blue">Back to log in</Link>
+          <button type="button" className="btn-pill btn-grey" onClick={() => { setDone(null); setId(''); }}>Try a different account</button>
         </div>
-
-        <h1 className="auth-heading">Find your account</h1>
-        <p className="auth-subtext muted">
-          Enter your username or email address linked to your account.
-        </p>
-
-        {submitted ? (
-          <div className="auth-success-card">
-            <div className="auth-success-icon">
-              <i className="ri-mail-send-line" />
-            </div>
-            <h3>Check your email</h3>
-            <p className="muted">
-              {maskedEmail ? (
-                <>
-                  We sent a link to reset your password to <b>{maskedEmail}</b>. Please check your inbox and spam folder.
-                </>
-              ) : (
-                'If an account matches that username or email, we have sent a link to reset your password.'
-              )}
-            </p>
-            <div className="auth-actions" style={{ marginTop: '24px' }}>
-              <Link to="/login" className="btn-pill btn-primary center-text">
-                Back to log in
-              </Link>
-              <button
-                type="button"
-                className="btn-pill btn-secondary"
-                onClick={() => {
-                  setSubmitted(false);
-                  setIdentifier('');
-                }}
-              >
-                Try another account
-              </button>
-            </div>
+      </AuthShell>
+    );
+  }
+  return (
+    <AuthShell back="/login">
+      <form className="auth2-form" onSubmit={submit}>
+        <h1>Find your account</h1>
+        <p className="sub">Enter your username or email. <button type="button" className="link-blue" onClick={() => setHelp(!help)}>Can&apos;t reset your password?</button></p>
+        {help && (
+          <div className="helpbox">
+            <b>Trouble resetting?</b>
+            <ul>
+              <li>Use the username or email address you signed up with.</li>
+              <li>The link is sent to your account&apos;s email. Check spam or junk folders.</li>
+              <li>Each link works once and expires after 1 hour.</li>
+              <li>If you no longer have access to that email, you can <Link to="/accounts/emailsignup" className="link-blue">create a new account</Link>.</li>
+            </ul>
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="auth-form" noValidate>
-            <FloatingInput
-              id="forgot-identifier"
-              label="Username or email"
-              value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
-              required
-              disabled={busy}
-              autoComplete="username"
-            />
-
-            <div className="auth-actions">
-              <button
-                type="submit"
-                className="btn-pill btn-primary"
-                disabled={!canSubmit || busy}
-              >
-                {busy ? 'Searching…' : 'Continue'}
-              </button>
-
-              <button
-                type="button"
-                className="link muted center-text cant-reset-link"
-                onClick={() => setShowHelp(true)}
-              >
-                Can't reset your password?
-              </button>
-            </div>
-
-            {err && (
-              <div className="auth-error-banner" role="alert">
-                <i className="ri-error-warning-fill" />
-                <span>{err}</span>
-              </div>
-            )}
-          </form>
         )}
-      </div>
-
-      {showHelp && (
-        <LegalModal
-          title="Can't reset your password?"
-          onClose={() => setShowHelp(false)}
-          content={
-            <div className="help-content">
-              <p>Here are a few things you can try to get back into your account:</p>
-              <ul>
-                <li>Double-check that you typed your username or email correctly.</li>
-                <li>Check your email's spam or junk folders for an email from Instaclone.</li>
-                <li>If you created your account with an email address, enter your full email address instead of your username.</li>
-                <li>In local development, the password reset link is printed directly to the server terminal output.</li>
-              </ul>
-            </div>
-          }
-        />
-      )}
-    </div>
+        <Field label="Username or email" value={id} onChange={(e) => setId(e.target.value)} autoFocus autoComplete="username" />
+        <p className="small-text">We&apos;ll email you a link to reset your password. For your security, we don&apos;t say whether an account exists.</p>
+        {err && <p className="field-msg bad"><Icon name="error-warning-line" /> {err}</p>}
+        <button className="btn-pill btn-blue" disabled={busy || !id.trim()}>{busy ? 'Please wait…' : 'Continue'}</button>
+      </form>
+    </AuthShell>
   );
 }
-
