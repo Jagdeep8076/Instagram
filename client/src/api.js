@@ -31,14 +31,16 @@ api.interceptors.response.use((r) => r, async (err) => {
   }
   return Promise.reject(err);
 });
+// Turns an API error into a friendly English message.
+// Uses the server's own message when it sent one (including the 503 "database not connected"
+// and the 502 "couldn't send the email" cases); only says "can't reach the server" when there is
+// really no usable reply (network error, or the dev proxy returned an empty 500).
 export const errMsg = (e, fallback = 'Something went wrong. Please try again.') => {
   const res = e?.response;
-  if (res?.status === 503 && res?.data?.msg) {
-    return res.data.msg;
-  }
-  if (!res || !res.data || typeof res.data !== 'object' || [500, 502, 503, 504].includes(res.status)) {
-    return "Can't reach the server. Make sure the server is running.";
-  }
-  return res.data?.msg || fallback;
+  if (!res) return "Can't reach the server. Make sure the server is running.";
+  const msg = typeof res.data === 'object' ? res.data?.msg : null;
+  if (msg) return msg;
+  if (res.status >= 500) return "Can't reach the server. Make sure the server is running.";
+  return fallback;
 };
 export default api;

@@ -1,16 +1,28 @@
 {
-  "name": "insta-clone",
+  "name": "insta-server",
   "version": "1.0.0",
-  "description": "**Core:** signup / login / logout (JWT), feed, image+video posts, Reels (vertical scroll, autoplay, double-tap like, mute), like / unlike, comments, share (link copy / native share), follow / unfollow, profile card + edit profile (avatar, bio), explore grid, user search, follow suggestions, delete own post.",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js",
+    "dev": "nodemon server.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
-    "puppeteer-core": "^25.16.0"
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-async-errors": "^3.1.1",
+    "express-rate-limit": "^8.7.4",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.4.0",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^10.5.0",
+    "socket.io": "^4.8.4",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
   }
 }
